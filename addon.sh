@@ -78,7 +78,15 @@ while IFS='|' read -r FO FI U; do
       U="$U&token=$CIVITAI_TOKEN" ;;
   esac
   echo "downloading: $FI"
-  aria2c -q -x 16 -s 16 -k 1M -c -d "$D" -o "$FI" "$U" </dev/null || echo "FAILED $FI"
+  if ! aria2c -q -x 16 -s 16 -k 1M -c -d "$D" -o "$FI" "$U" </dev/null; then
+    echo "retrying: $FI"
+    rm -f "$D/$FI" "$D/$FI.aria2"
+    if curl -fsSL --retry 3 -o "$D/$FI.part" "$U" </dev/null; then
+      mv "$D/$FI.part" "$D/$FI"
+    else
+      rm -f "$D/$FI.part"; echo "FAILED $FI"
+    fi
+  fi
   CHANGED=1
 done < "$T/models_addon.txt"
 
