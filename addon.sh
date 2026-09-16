@@ -79,7 +79,7 @@ while IFS='|' read -r FO FI U; do
 done < "$T/models_addon.txt"
 
 # 7. Restart ComfyUI once the image has started it, so it loads everything above
-if [ "$CHANGED" = 1 ]; then
+if [ "$CHANGED" = 1 ] && [ -z "${ADDON_NO_RESTART:-}" ]; then
   echo "waiting for ComfyUI to come up before restarting it..."
   until curl -sf http://127.0.0.1:8188 >/dev/null; do sleep 10; done
   pkill -f "ComfyUI/main.py"; sleep 5
