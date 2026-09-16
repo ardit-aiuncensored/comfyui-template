@@ -1,0 +1,12 @@
+diffusion_models|minimax_h3_fl2va_pruned_int8.safetensors|https://civitai.com/api/download/models/3193337?fileId=3074134
+diffusion_models|minimax_h3_ref2va_pruned_int8.safetensors|https://civitai.com/api/download/models/3193385?fileId=3074237
+loras|minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors|https://huggingface.co/Kijai/MiniMax-H3_comfy/resolve/main/loras/minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors
+loras|minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors|https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors
+loras|minimax_h3_turbo_4step_ckpt850.safetensors|https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/resolve/main/minimax_h3_turbo_4step_ckpt850.safetensors
+text_encoders|qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors|https://civitai.com/api/download/models/3216500?fileId=3085616
+ultralytics/bbox|face_yolov8m.pt|https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8m.pt
+ultralytics/bbox|hand_yolov8s.pt|https://huggingface.co/Bingsu/adetailer/resolve/main/hand_yolov8s.pt
+ultralytics/segm|person_yolov8m-seg.pt|https://huggingface.co/Bingsu/adetailer/resolve/main/person_yolov8m-seg.pt
+vae_approx|taeh3.safetensors|https://raw.githubusercontent.com/madebyollin/taehv/62f7591f59dfbb4c3c02b7a621d180a9eeaba26c/safetensors/taeh3.safetensors
+vae|minimax_h3_audio_vae_fp32.safetensors|https://civitai.com/api/download/models/3216500?fileId=3085494
+vae|minimax_h3_video_vae_fp16.safetensors|https://civitai.com/api/download/models/3216500?fileId=3085507

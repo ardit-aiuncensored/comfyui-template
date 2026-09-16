@@ -1,0 +1,2 @@
+ComfyUI-LoadImageCrop
+comfyui_fearnworksnodes
