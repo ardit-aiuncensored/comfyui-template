@@ -1,7 +1,10 @@
 #!/bin/bash
-# Add-on for the Aiorbust ComfyUI image.
+# AI Uncensored add-on setup.
 # Adds: newer ComfyUI, extra custom nodes, MiniMax H3 + other models, workflows, settings.
-# Runs alongside the image's own /start.sh. Safe to re-run: skips anything already done.
+# Safe to re-run: skips anything already done.
+
+# Models to leave out, even if they are listed in models_addon.txt (space-separated filenames)
+SKIP_MODELS="minimax_h3_ref2va_pruned_int8.safetensors"
 
 REPO="${SETUP_REPO:?SETUP_REPO is not set in the template}"
 BRANCH="${SETUP_BRANCH:-main}"
@@ -66,6 +69,7 @@ cp -n "$T"/workflows/*.json "$C/user/default/workflows/" 2>/dev/null
 # 6. Models the image doesn't download (models_addon.txt: folder|filename|url)
 while IFS='|' read -r FO FI U; do
   [ -z "${FO:-}" ] && continue
+  case " $SKIP_MODELS " in *" $FI "*) echo "not installing: $FI"; continue ;; esac
   D="$C/models/$FO"; mkdir -p "$D"
   if [ -s "$D/$FI" ] && [ ! -f "$D/$FI.aria2" ]; then continue; fi
   case "$U" in
