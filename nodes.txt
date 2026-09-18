@@ -31,3 +31,6 @@ comfyui-skin-detailer https://github.com/aiorbust-jy/comfyui-skin-detailer.git 6
 comfyui_controlnet_aux https://github.com/Fannovel16/comfyui_controlnet_aux.git 59b1fc411ede8623b2997855b8018f0b3b6cf49f
 public-aiorbust-nodes-pack https://github.com/aiorbust-jy/public-aiorbust-nodes-pack.git 0ffd55810b0945b6d2abd3483341813dffd6bd43
 rgthree-comfy https://github.com/rgthree/rgthree-comfy.git 2c5342a8cb0eaecaabf61435a5f37dd594c510ba
+ComfyUI-mxToolkit https://github.com/Smirnov75/ComfyUI-mxToolkit.git 7f7a0e584f12078a1c589645d866ae96bad0cc35
+ComfyMath https://github.com/evanspearman/ComfyMath.git c01177221c31b8e5fbc062778fc8254aeb541638
+10S-Comfy-nodes https://github.com/TenStrip/10S-Comfy-nodes.git c231acaaf66dff9153fc190a9a8e67a8198005a6
