@@ -13,4 +13,4 @@ vae|minimax_h3_video_vae_fp16.safetensors|https://civitai.com/api/download/model
 checkpoints|10Eros_v1.3_fp8mixed_learned.safetensors|https://huggingface.co/TenStrip/LTX2.3-10Eros/resolve/main/10Eros_v1.3_fp8mixed_learned.safetensors
 text_encoders|gemma-3-12b-it-ablit-norms-biproj-fp8mixed.safetensors|https://huggingface.co/TenStrip/LTX2.3-10Eros/resolve/main/text_encoders/gemma-3-12b-it-ablit-norms-biproj-fp8mixed.safetensors
 latent_upscale_models|ltx-2.3-spatial-upscaler-x2-1.1.safetensors|https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.1.safetensors
-loras|LTX2.3_DMD_reshaped_r256.safetensors|https://huggingface.co/TenStrip/LTX2.3_DMD_reshaped_r256.safetensors
+loras|LTX2.3_DMD_reshaped_r256.safetensors|https://huggingface.co/TenStrip/LTX2.3_DMD_Lora/resolve/main/LTX2.3_DMD_reshaped_r256.safetensors
