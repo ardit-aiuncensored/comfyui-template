@@ -29,31 +29,20 @@ curl -fsSL "https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz" | tar xz
 CHANGED=0
 
 # 3. ComfyUI version (MiniMax H3 needs a newer ComfyUI than the image ships)
+# git can't safely rewrite files on RunPod network volumes (a half-finished
+# update deleted main.py). So: build the right version on the container disk,
+# then copy it over the top. Models and custom nodes aren't touched.
 CV=$(tr -d '[:space:]' < "$T/comfy_version.txt")
-if [ -n "$CV" ] && [ "$(git -C "$C" rev-parse HEAD 2>/dev/null)" != "$CV" ]; then
-  G="git -C $C -c user.name=aiu -c user.email=aiu@localhost"
-  # The image ships with its own edit to comfy/samplers.py, which made git refuse
-  # to update. Set that edit aside, update, then put it back on top if it still fits.
-  # Keep a copy of the image's edits in case they're ever needed again.
-  $G diff > /workspace/comfyui_image_edits.patch 2>/dev/null
-  STASHED=0
-  if [ -s /workspace/comfyui_image_edits.patch ]; then
-    $G stash -q </dev/null && STASHED=1
-  fi
-  $G fetch -q origin </dev/null
-  if $G checkout -q "$CV" </dev/null || $G checkout -q -f "$CV" </dev/null; then
-    if [ "$STASHED" = 1 ]; then
-      if $G stash pop -q </dev/null; then
-        echo "kept the image's own ComfyUI edits"
-      else
-        echo "WARN: image's own ComfyUI edits don't fit the new version; using the plain new version"
-        $G reset -q --hard "$CV" </dev/null; $G stash drop -q </dev/null
-      fi
-    fi
+if [ -n "$CV" ] && [ "$(git -C "$C" rev-parse HEAD 2>/dev/null)" != "$CV" -o ! -f "$C/main.py" ]; then
+  git -C "$C" diff -- comfy/samplers.py > /workspace/comfyui_image_edits.patch 2>/dev/null
+  S=/tmp/comfy_src; rm -rf "$S"
+  if git clone -q --filter=blob:none https://github.com/comfyanonymous/ComfyUI.git "$S" </dev/null \
+     && git -C "$S" checkout -q "$CV" </dev/null \
+     && cp -r "$S/." "$C/"; then
+    rm -rf "$S"
     pipi -r "$C/requirements.txt"; CHANGED=1; echo "ComfyUI set to $CV"
   else
     echo "FAILED to update ComfyUI to $CV"
-    [ "$STASHED" = 1 ] && $G stash pop -q </dev/null
   fi
 fi
 

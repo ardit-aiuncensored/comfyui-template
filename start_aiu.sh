@@ -276,11 +276,11 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 nohup python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen --disable-smart-memory --disable-cuda-malloc > "$NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log" 2>&1 &
 
     counter=0
-    max_wait=45
+    max_wait=600
 
     until curl --silent --fail "$URL" --output /dev/null; do
         if [ $counter -ge $max_wait ]; then
-            echo "ComfyUI is still starting. Check the startup log in /workspace."
+            echo "ComfyUI is taking unusually long. Check the startup log: $NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log"
             break
         fi
 
