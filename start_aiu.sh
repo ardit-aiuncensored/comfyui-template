@@ -95,6 +95,15 @@ download_model() {
         fi
     fi
 
+    # Only a few downloads at once. Starting all ~35 together (16 connections
+    # each) jammed the network volume and made every download crawl.
+    while :; do
+        local running=0
+        for p in "${DL_PIDS[@]}"; do kill -0 "$p" 2>/dev/null && running=$((running+1)); done
+        [ "$running" -lt 4 ] && break
+        sleep 2
+    done
+
     echo "📥 Downloading $destination_file to $destination_dir..."
 
     aria2c -x 16 -s 16 -k 1M --continue=true --max-tries=20 --retry-wait=15 --timeout=60 --connect-timeout=30 --file-allocation=none \

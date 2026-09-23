@@ -34,11 +34,14 @@ if [ -n "$CV" ] && [ "$(git -C "$C" rev-parse HEAD 2>/dev/null)" != "$CV" ]; the
   G="git -C $C -c user.name=aiu -c user.email=aiu@localhost"
   # The image ships with its own edit to comfy/samplers.py, which made git refuse
   # to update. Set that edit aside, update, then put it back on top if it still fits.
+  # Keep a copy of the image's edits in case they're ever needed again.
+  $G diff > /workspace/comfyui_image_edits.patch 2>/dev/null
   STASHED=0
-  if [ -n "$($G status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+  if [ -s /workspace/comfyui_image_edits.patch ]; then
     $G stash -q </dev/null && STASHED=1
   fi
-  if $G fetch -q origin </dev/null && $G checkout -q "$CV" </dev/null; then
+  $G fetch -q origin </dev/null
+  if $G checkout -q "$CV" </dev/null || $G checkout -q -f "$CV" </dev/null; then
     if [ "$STASHED" = 1 ]; then
       if $G stash pop -q </dev/null; then
         echo "kept the image's own ComfyUI edits"
