@@ -31,8 +31,27 @@ CHANGED=0
 # 3. ComfyUI version (MiniMax H3 needs a newer ComfyUI than the image ships)
 CV=$(tr -d '[:space:]' < "$T/comfy_version.txt")
 if [ -n "$CV" ] && [ "$(git -C "$C" rev-parse HEAD 2>/dev/null)" != "$CV" ]; then
-  git -C "$C" fetch -q origin </dev/null && git -C "$C" checkout -q "$CV" </dev/null \
-    && pipi -r "$C/requirements.txt" && CHANGED=1 && echo "ComfyUI set to $CV"
+  G="git -C $C -c user.name=aiu -c user.email=aiu@localhost"
+  # The image ships with its own edit to comfy/samplers.py, which made git refuse
+  # to update. Set that edit aside, update, then put it back on top if it still fits.
+  STASHED=0
+  if [ -n "$($G status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+    $G stash -q </dev/null && STASHED=1
+  fi
+  if $G fetch -q origin </dev/null && $G checkout -q "$CV" </dev/null; then
+    if [ "$STASHED" = 1 ]; then
+      if $G stash pop -q </dev/null; then
+        echo "kept the image's own ComfyUI edits"
+      else
+        echo "WARN: image's own ComfyUI edits don't fit the new version; using the plain new version"
+        $G reset -q --hard "$CV" </dev/null; $G stash drop -q </dev/null
+      fi
+    fi
+    pipi -r "$C/requirements.txt"; CHANGED=1; echo "ComfyUI set to $CV"
+  else
+    echo "FAILED to update ComfyUI to $CV"
+    [ "$STASHED" = 1 ] && $G stash pop -q </dev/null
+  fi
 fi
 
 # 4. Custom nodes, pinned to the tested versions (nodes.txt: name url commit)
@@ -79,39 +98,79 @@ cp -n "$T"/workflows/*.json "$C/user/default/workflows/" 2>/dev/null
 [ -f "$C/user/default/comfy.settings.json" ] || cp "$T/comfy.settings.json" "$C/user/default/" 2>/dev/null
 
 # 6. Models the image doesn't download (models_addon.txt: folder|filename|url)
-while IFS='|' read -r FO FI U; do
-  [ -z "${FO:-}" ] && continue
-  case " $SKIP_MODELS " in *" $FI "*) echo "not installing: $FI"; continue ;; esac
-  D="$C/models/$FO"; mkdir -p "$D"
-  if [ -s "$D/$FI" ] && [ ! -f "$D/$FI.aria2" ]; then continue; fi
-  case "$U" in
-    *civitai.com*)
-      if [ -z "${CIVITAI_TOKEN:-}" ]; then echo "SKIPPED $FI (add your CIVITAI_TOKEN to the template)"; continue; fi
-      U="$U&token=$CIVITAI_TOKEN" ;;
-  esac
-  rm -f "$D/$FI.part"   # leftover from the old curl fallback, never resumable
-  echo "downloading: $FI"
-  # Big files (10Eros is ~28 GB) often lose connections to the download servers.
-  # Keep resuming from where it stopped instead of deleting progress and
-  # starting over. The .aria2 file stays until the file is really complete.
-  OK=0
-  for TRY in 1 2 3 4 5 6; do
-    if aria2c -q -x 8 -s 8 -k 1M -c --max-tries=20 --retry-wait=15 --timeout=60 --connect-timeout=30 \
-         -d "$D" -o "$FI" "$U" </dev/null; then
-      OK=1; break
-    fi
-    echo "connection dropped, resuming $FI (attempt $((TRY+1)) of 6)..."
-    sleep 20
-  done
-  if [ "$OK" = 1 ]; then
-    echo "downloaded: $FI"
-  else
-    echo "FAILED $FI (progress kept; re-running the add-on resumes it)"
-  fi
-  CHANGED=1
-done < "$T/models_addon.txt"
+# These run in the BACKGROUND so ComfyUI can open right away. The big video
+# models (10Eros alone is ~28 GB) keep arriving while students use Krea 2; they
+# show up in ComfyUI's model lists after a page refresh.
+# Progress: /workspace/model_downloads.log
 
-# 7. Restart ComfyUI once the image has started it, so it loads everything above
+# Hugging Face files: use Hugging Face's own downloader (hf_xet, already in the
+# image). Some repos (e.g. TenStrip/LTX2.3-10Eros) stall when pulled with aria2.
+hf_get() {  # hf_get URL DEST_DIR FILENAME
+  local rest="${1#https://huggingface.co/}"          # owner/repo/resolve/rev/path
+  rest="${rest%%\?*}"
+  local repo rev path
+  repo="$(echo "$rest" | cut -d/ -f1-2)"
+  rev="$(echo "$rest" | cut -d/ -f4)"
+  path="$(echo "$rest" | cut -d/ -f5-)"
+  HF_HUB_DOWNLOAD_TIMEOUT=60 $PY - "$repo" "$path" "$rev" "$2/.hf_tmp" "$2/$3" <<'EOF' </dev/null
+import os, sys, urllib.parse
+from huggingface_hub import hf_hub_download
+repo, path, rev, tmp, dest = sys.argv[1:6]
+p = hf_hub_download(repo_id=repo, filename=urllib.parse.unquote(path), revision=rev, local_dir=tmp)
+os.replace(p, dest)
+EOF
+}
+
+aria_get() {  # aria_get URL DEST_DIR FILENAME
+  aria2c -q -x 8 -s 8 -k 1M -c --max-tries=20 --retry-wait=15 --timeout=60 --connect-timeout=30 \
+    --file-allocation=none -d "$2" -o "$3" "$1" </dev/null
+}
+
+get_models() {
+  echo "==== model downloads started $(date)"
+  while IFS='|' read -r FO FI U; do
+    [ -z "${FO:-}" ] && continue
+    case " $SKIP_MODELS " in *" $FI "*) echo "not installing: $FI"; continue ;; esac
+    D="$C/models/$FO"; mkdir -p "$D"
+    if [ -s "$D/$FI" ] && [ ! -f "$D/$FI.aria2" ]; then continue; fi
+    case "$U" in
+      *civitai.com*)
+        if [ -z "${CIVITAI_TOKEN:-}" ]; then echo "SKIPPED $FI (add your CIVITAI_TOKEN to the template)"; continue; fi
+        U="$U&token=$CIVITAI_TOKEN" ;;
+    esac
+    rm -f "$D/$FI.part"   # leftover from the old curl fallback, never resumable
+    echo "downloading: $FI"
+    OK=0
+    for TRY in 1 2 3 4 5 6; do
+      case "$U" in
+        https://huggingface.co/*)
+          # Clear any half-finished aria2 copy; hf keeps its own resumable progress.
+          [ -f "$D/$FI.aria2" ] && rm -f "$D/$FI" "$D/$FI.aria2"
+          hf_get "$U" "$D" "$FI" && OK=1 ;;
+        *)
+          aria_get "$U" "$D" "$FI" && OK=1 ;;
+      esac
+      [ "$OK" = 1 ] && break
+      echo "connection dropped, resuming $FI (attempt $((TRY+1)) of 6)..."
+      sleep 20
+    done
+    if [ "$OK" = 1 ]; then
+      rm -rf "$D/.hf_tmp"
+      echo "downloaded: $FI"
+    else
+      echo "FAILED $FI (progress kept; re-running the add-on resumes it)"
+    fi
+  done < "$T/models_addon.txt"
+  echo "==== model downloads finished $(date)"
+}
+
+# Output goes to its own log so this script (and the startup) doesn't wait for it.
+# The lock stops two copies running at once if the add-on is re-run mid-download.
+( flock -n 9 || { echo "model downloads already running"; exit 0; }; get_models ) \
+  9>/tmp/model_downloads.lock >> /workspace/model_downloads.log 2>&1 < /dev/null &
+echo "model downloads running in the background; progress: /workspace/model_downloads.log"
+
+# 7. Restart ComfyUI once the image has started it, so it loads new nodes / ComfyUI version
 if [ "$CHANGED" = 1 ] && [ -z "${ADDON_NO_RESTART:-}" ]; then
   echo "waiting for ComfyUI to come up before restarting it..."
   until curl -sf http://127.0.0.1:8188 >/dev/null; do sleep 10; done

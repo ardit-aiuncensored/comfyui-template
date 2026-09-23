@@ -97,8 +97,9 @@ download_model() {
 
     echo "📥 Downloading $destination_file to $destination_dir..."
 
-    aria2c -x 16 -s 16 -k 1M --continue=true --max-tries=20 --retry-wait=15 --timeout=60 --connect-timeout=30 \
+    aria2c -x 16 -s 16 -k 1M --continue=true --max-tries=20 --retry-wait=15 --timeout=60 --connect-timeout=30 --file-allocation=none \
         -d "$destination_dir" -o "$destination_file" "$url" &
+    DL_PIDS+=($!)
 
     echo "Download started in background for $destination_file"
 }
@@ -136,6 +137,7 @@ SAMS_DIR="$NETWORK_VOLUME/ComfyUI/models/sams"
 ULTRALYTICS_BBOX_DIR="$NETWORK_VOLUME/ComfyUI/models/ultralytics/bbox"
 HUMANPARTS_DIR="$NETWORK_VOLUME/ComfyUI/models/onnx/human-parts"
 
+DL_PIDS=()
 echo "📦 Starting model downloads..."
 
 download_model "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors" "$DIFFUSION_MODELS_DIR/krea2_turbo_fp8_scaled.safetensors"
@@ -200,10 +202,10 @@ download_civitai 3141485 "$LORAS_DIR/RawGirlSpicyV3.safetensors" 3021786
 
 echo "Installing AI Uncensored extras..."
 curl -fsSL "https://raw.githubusercontent.com/$SETUP_REPO/main/addon.sh" -o /addon.sh && ADDON_NO_RESTART=1 bash /addon.sh 2>&1 | tee -a /workspace/addon.log
-while pgrep -x "aria2c" > /dev/null; do
-    echo "Models are downloading (In Progress)"
-    sleep 5  # Check every 5 seconds
-done
+# Wait only for the main (Krea 2 etc.) downloads started above. The add-on's big
+# video models keep downloading in the background and don't block ComfyUI.
+echo "Waiting for the main model downloads to finish..."
+for p in "${DL_PIDS[@]}"; do wait "$p"; done
 
 echo "All models downloaded successfully"
 
