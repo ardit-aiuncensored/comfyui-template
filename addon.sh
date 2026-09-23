@@ -8,19 +8,19 @@ SKIP_MODELS="minimax_h3_ref2va_pruned_int8.safetensors"
 
 REPO="${SETUP_REPO:?SETUP_REPO is not set in the template}"
 BRANCH="${SETUP_BRANCH:-main}"
-C=/workspace/ComfyUI
+C=/ComfyUI   # runs from the container disk; models/user/output/input link to /workspace
 if [ -x /opt/venv/bin/python3 ]; then PY=/opt/venv/bin/python3; else PY=python3; fi
 pipi() { $PY -m pip install -q "$@" </dev/null || uv pip install --python "$PY" "$@" </dev/null; }
 echo "==== add-on started $(date)"
 cd /
 # Files on network volumes are owned by "nobody"; without this, git refuses to
-# touch them ("dubious ownership"), which blocked the ComfyUI version update.
+# touch them ("dubious ownership").
 git config --global --add safe.directory '*'
 
-# 1. Wait for the image to finish moving ComfyUI onto the volume (can take a while)
-echo "waiting for ComfyUI to be ready on the volume..."
-until [ -f "$C/main.py" ] && ! pgrep -f "mv /ComfyUI" >/dev/null; do sleep 15; done
-echo "ComfyUI is on the volume"
+# 1. Wait until the start script has linked the volume folders in
+echo "waiting for ComfyUI folders to be ready..."
+until [ -f "$C/main.py" ] && [ -L "$C/models" ]; do sleep 5; done
+echo "ComfyUI is ready"
 
 # 2. Download this repo
 T=/tmp/addon; rm -rf "$T"; mkdir -p "$T"
@@ -29,17 +29,26 @@ curl -fsSL "https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz" | tar xz
 CHANGED=0
 
 # 3. ComfyUI version (MiniMax H3 needs a newer ComfyUI than the image ships)
-# git can't safely rewrite files on RunPod network volumes (a half-finished
-# update deleted main.py). So: build the right version on the container disk,
-# then copy it over the top. Models and custom nodes aren't touched.
+# ComfyUI is on the container disk, which resets to the image on every boot, so
+# this runs every boot. -f drops the image's own edit to comfy/samplers.py,
+# which otherwise blocks the update.
 CV=$(tr -d '[:space:]' < "$T/comfy_version.txt")
-if [ -n "$CV" ] && [ "$(git -C "$C" rev-parse HEAD 2>/dev/null)" != "$CV" -o ! -f "$C/main.py" ]; then
-  git -C "$C" diff -- comfy/samplers.py > /workspace/comfyui_image_edits.patch 2>/dev/null
-  S=/tmp/comfy_src; rm -rf "$S"
-  if git clone -q --filter=blob:none https://github.com/comfyanonymous/ComfyUI.git "$S" </dev/null \
-     && git -C "$S" checkout -q "$CV" </dev/null \
-     && cp -r "$S/." "$C/"; then
-    rm -rf "$S"
+if [ -n "$CV" ] && [ "$(git -C "$C" rev-parse HEAD 2>/dev/null)" != "$CV" ]; then
+  # models/user/output/input are links to the volume. Git doesn't write through
+  # links (it would swap them for empty folders), so unlink them for the update
+  # and link them again afterwards. The files on the volume are never touched.
+  for sub in models user output input; do [ -L "$C/$sub" ] && rm "$C/$sub"; done
+  if { git -C "$C" cat-file -e "$CV^{commit}" 2>/dev/null || git -C "$C" fetch -q origin </dev/null; } \
+     && git -C "$C" checkout -q -f "$CV" </dev/null; then
+    UPDATED=1
+  else
+    UPDATED=0
+  fi
+  for sub in models user output input; do
+    [ -L "$C/$sub" ] || rm -rf "$C/$sub"          # placeholder folder git just made
+    ln -sfn "/workspace/ComfyUI/$sub" "$C/$sub"
+  done
+  if [ "$UPDATED" = 1 ]; then
     pipi -r "$C/requirements.txt"; CHANGED=1; echo "ComfyUI set to $CV"
   else
     echo "FAILED to update ComfyUI to $CV"
@@ -60,16 +69,16 @@ while read -r NAME URL COMMIT; do
     git -C "$TMPN" checkout -q "$COMMIT" </dev/null || echo "WARN: $NAME commit not found, kept latest version"
     cp -r "$TMPN" "$D" || { echo "FAILED node $NAME (copy to volume)"; rm -rf "$D"; continue; }
     rm -rf "$TMPN"
-    echo "installed node: $NAME"
+    echo "installed node: $NAME"; CHANGED=1
   elif [ ! -d "$D/.git" ] || [ "$(git -C "$D" rev-parse HEAD 2>/dev/null)" = "$COMMIT" ]; then
-    continue
+    continue   # shipped in the image at the right version; its packages are already there
   else
     echo "updating node: $NAME"
     git -C "$D" fetch -q origin </dev/null
     git -C "$D" checkout -q "$COMMIT" </dev/null || echo "WARN: $NAME commit not found, kept current version"
+    CHANGED=1
   fi
   [ -f "$D/requirements.txt" ] && pipi -r "$D/requirements.txt"
-  CHANGED=1
 done < "$T/nodes.txt"
 
 # Node packs that are not on GitHub (shipped in this repo)

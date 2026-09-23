@@ -28,21 +28,42 @@ git config --global --add safe.directory '*'
 
 NETWORK_VOLUME="/workspace"
 URL="http://127.0.0.1:8188"
+mkdir -p "$NETWORK_VOLUME"
 
-if [ ! -d "$NETWORK_VOLUME" ]; then
-    echo "NETWORK_VOLUME directory '$NETWORK_VOLUME' does not exist. You are NOT using a network volume. Setting NETWORK_VOLUME to '/' (root directory)."
-    NETWORK_VOLUME="/"
-    echo "NETWORK_VOLUME directory doesn't exist. Starting JupyterLab on root directory..."
-    jupyter-lab --ip=0.0.0.0 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.password='' --ServerApp.allow_origin='*' --ServerApp.allow_credentials=True --notebook-dir=/ &
-else
-    echo "NETWORK_VOLUME directory exists. Starting JupyterLab..."
-    jupyter-lab --ip=0.0.0.0 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.password='' --ServerApp.allow_origin='*' --ServerApp.allow_credentials=True --notebook-dir=/workspace &
-fi
+echo "Starting JupyterLab..."
+jupyter-lab --ip=0.0.0.0 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.password='' --ServerApp.allow_origin='*' --ServerApp.allow_credentials=True --notebook-dir=/workspace &
 
-COMFYUI_DIR="$NETWORK_VOLUME/ComfyUI"
-WORKFLOW_DIR="$NETWORK_VOLUME/ComfyUI/user/default/workflows"
+# ---------------------------------------------------------------------------
+# LAYOUT
+# ComfyUI and its custom nodes run from the image on the pod's container disk
+# (/ComfyUI): fast, and a clean copy on every boot. Only the things worth
+# keeping live on the network volume and are linked in:
+#   /workspace/ComfyUI/models   models, LoRAs, checkpoints
+#   /workspace/ComfyUI/user     saved workflows and settings
+#   /workspace/ComfyUI/output   generated images and videos
+#   /workspace/ComfyUI/input    uploaded images
+# Volumes from the old setup (whole ComfyUI on the volume) keep working: their
+# models/user/output/input folders are reused and the old code there is ignored.
+# ---------------------------------------------------------------------------
+COMFYUI_DIR="/ComfyUI"
+PERSIST_DIR="$NETWORK_VOLUME/ComfyUI"
+CUSTOM_NODES_DIR="$COMFYUI_DIR/custom_nodes"
+WORKFLOW_DIR="$PERSIST_DIR/user/default/workflows"
 
-CUSTOM_NODES_DIR="$NETWORK_VOLUME/ComfyUI/custom_nodes"
+mkdir -p "$PERSIST_DIR"
+for sub in models user output input; do
+    src="$COMFYUI_DIR/$sub"
+    dst="$PERSIST_DIR/$sub"
+    mkdir -p "$dst"
+    if [ -d "$src" ] && [ ! -L "$src" ]; then
+        # Keep anything the image ships in that folder, without overwriting
+        # what's already on the volume.
+        cp -rn "$src/." "$dst/" 2>/dev/null
+        rm -rf "$src"
+    fi
+    ln -sfn "$dst" "$src"
+done
+echo "ComfyUI runs from $COMFYUI_DIR; models, workflows and outputs are kept in $PERSIST_DIR"
 
 CRT_REQS="$CUSTOM_NODES_DIR/CRT-Nodes/requirements.txt"
 if [ -f "$CRT_REQS" ] && grep -q '^[[:space:]]*pedalboard[[:space:]]*$' "$CRT_REQS"; then
@@ -51,12 +72,6 @@ if [ -f "$CRT_REQS" ] && grep -q '^[[:space:]]*pedalboard[[:space:]]*$' "$CRT_RE
 fi
 if python3 -c "import importlib.util,sys; sys.exit(0 if importlib.util.find_spec('pedalboard') else 1)" 2>/dev/null; then
     pip uninstall -y pedalboard >/dev/null 2>&1         && echo "Uninstalled pedalboard (illegal-instruction crash on some CPUs)."
-fi
-
-if [ ! -d "$COMFYUI_DIR" ]; then
-    mv /ComfyUI "$COMFYUI_DIR"
-else
-    echo "Directory already exists, skipping move."
 fi
 
 pip install onnxruntime-gpu &
@@ -305,7 +320,7 @@ PYFIX
 echo "import aiu_volume_fix" > "$SITE_DIR/aiu_volume_fix.pth"
 fi
 
-nohup python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen --disable-smart-memory --disable-cuda-malloc > "$NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log" 2>&1 &
+cd "$COMFYUI_DIR" && nohup python3 "$COMFYUI_DIR/main.py" --listen --disable-smart-memory --disable-cuda-malloc > "$NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log" 2>&1 &
 
     counter=0
     max_wait=600
