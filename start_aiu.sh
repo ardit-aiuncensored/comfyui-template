@@ -273,6 +273,38 @@ echo "Starting ComfyUI"
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
+# Network volumes don't let anyone change file permissions or timestamps, so
+# custom nodes that copy files with Python's shutil.copy crash on load
+# (ComfyUI-Custom-Scripts, ComfyUI-Workflow-Encrypt, ...). This small patch makes
+# Python skip those permission/timestamp changes for files under /workspace only.
+SITE_DIR=$(python3 -c "import site; print(site.getsitepackages()[0])" 2>/dev/null)
+if [ -n "$SITE_DIR" ] && [ -d "$SITE_DIR" ]; then
+cat > "$SITE_DIR/aiu_volume_fix.py" <<'PYFIX'
+import os
+
+def _wrap(name):
+    real = getattr(os, name, None)
+    if real is None:
+        return
+    def safe(path, *args, **kwargs):
+        try:
+            return real(path, *args, **kwargs)
+        except PermissionError:
+            try:
+                p = os.fsdecode(path)
+            except TypeError:
+                raise
+            if p.startswith("/workspace"):
+                return None
+            raise
+    setattr(os, name, safe)
+
+for _n in ("chmod", "utime", "setxattr", "chown"):
+    _wrap(_n)
+PYFIX
+echo "import aiu_volume_fix" > "$SITE_DIR/aiu_volume_fix.pth"
+fi
+
 nohup python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen --disable-smart-memory --disable-cuda-malloc > "$NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log" 2>&1 &
 
     counter=0
