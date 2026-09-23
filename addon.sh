@@ -113,7 +113,9 @@ hf_get() {  # hf_get URL DEST_DIR FILENAME
   repo="$(echo "$rest" | cut -d/ -f1-2)"
   rev="$(echo "$rest" | cut -d/ -f4)"
   path="$(echo "$rest" | cut -d/ -f5-)"
-  HF_HUB_DOWNLOAD_TIMEOUT=60 $PY - "$repo" "$path" "$rev" "$2/.hf_tmp" "$2/$3" <<'EOF' </dev/null
+  # (The script below is fed to Python on stdin, so no "</dev/null" here: that
+  # replaced the script with nothing, Python did nothing, and it looked like success.)
+  HF_HUB_DOWNLOAD_TIMEOUT=60 $PY - "$repo" "$path" "$rev" "$2/.hf_tmp" "$2/$3" <<'EOF'
 import os, sys, urllib.parse
 from huggingface_hub import hf_hub_download
 repo, path, rev, tmp, dest = sys.argv[1:6]
@@ -151,6 +153,8 @@ get_models() {
         *)
           aria_get "$U" "$D" "$FI" && OK=1 ;;
       esac
+      # Only count it as done if the file is really there
+      if [ "$OK" = 1 ] && [ ! -s "$D/$FI" ]; then echo "download reported success but $FI is missing"; OK=0; fi
       [ "$OK" = 1 ] && break
       echo "connection dropped, resuming $FI (attempt $((TRY+1)) of 6)..."
       sleep 20
