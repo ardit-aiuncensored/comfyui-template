@@ -18,6 +18,14 @@ else
     echo "curl is already installed"
 fi
 
+# Run from / so JupyterLab and pip never sit inside /ComfyUI, which gets moved
+# to the volume below (that broke new Jupyter terminals and a pip install).
+cd /
+
+# Files on network volumes are owned by "nobody", so git refuses to work in
+# them ("dubious ownership") unless told to trust them.
+git config --global --add safe.directory '*'
+
 NETWORK_VOLUME="/workspace"
 URL="http://127.0.0.1:8188"
 
@@ -69,7 +77,12 @@ download_model() {
 
     mkdir -p "$destination_dir"
 
-    if [ -f "$full_path" ]; then
+    # A .aria2 file means an earlier download was interrupted. aria2 reserves the
+    # full file size up front, so the file can look complete when it isn't.
+    # Check for .aria2 first and resume it, rather than skipping or deleting it.
+    if [ -f "${full_path}.aria2" ]; then
+        echo "⏯️  Resuming unfinished download: $destination_file"
+    elif [ -f "$full_path" ]; then
         local size_bytes=$(stat -f%z "$full_path" 2>/dev/null || stat -c%s "$full_path" 2>/dev/null || echo 0)
         local size_mb=$((size_bytes / 1024 / 1024))
 
@@ -82,15 +95,10 @@ download_model() {
         fi
     fi
 
-    if [ -f "${full_path}.aria2" ]; then
-        echo "🗑️  Deleting .aria2 control file: ${full_path}.aria2"
-        rm -f "${full_path}.aria2"
-        rm -f "$full_path"  # Also remove any partial file
-    fi
-
     echo "📥 Downloading $destination_file to $destination_dir..."
 
-    aria2c -x 16 -s 16 -k 1M --continue=true -d "$destination_dir" -o "$destination_file" "$url" &
+    aria2c -x 16 -s 16 -k 1M --continue=true --max-tries=20 --retry-wait=15 --timeout=60 --connect-timeout=30 \
+        -d "$destination_dir" -o "$destination_file" "$url" &
 
     echo "Download started in background for $destination_file"
 }

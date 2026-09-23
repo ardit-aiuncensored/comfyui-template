@@ -12,6 +12,10 @@ C=/workspace/ComfyUI
 if [ -x /opt/venv/bin/python3 ]; then PY=/opt/venv/bin/python3; else PY=python3; fi
 pipi() { $PY -m pip install -q "$@" </dev/null || uv pip install --python "$PY" "$@" </dev/null; }
 echo "==== add-on started $(date)"
+cd /
+# Files on network volumes are owned by "nobody"; without this, git refuses to
+# touch them ("dubious ownership"), which blocked the ComfyUI version update.
+git config --global --add safe.directory '*'
 
 # 1. Wait for the image to finish moving ComfyUI onto the volume (can take a while)
 echo "waiting for ComfyUI to be ready on the volume..."
@@ -37,14 +41,22 @@ while read -r NAME URL COMMIT; do
   D="$C/custom_nodes/$NAME"
   if [ ! -d "$D" ]; then
     echo "installing node: $NAME"
-    git clone -q "$URL" "$D" </dev/null || { echo "FAILED node $NAME"; continue; }
-  elif [ ! -d "$D/.git" ] || [ "$(git -C "$D" rev-parse HEAD)" = "$COMMIT" ]; then
+    # Clone on the container disk first, then copy onto the volume. Some network
+    # volumes block the permission changes git makes while cloning
+    # ("chmod on .git/config.lock failed"), which made these installs fail.
+    TMPN="/tmp/nodes/$NAME"; rm -rf "$TMPN"; mkdir -p /tmp/nodes
+    git clone -q "$URL" "$TMPN" </dev/null || { echo "FAILED node $NAME (clone)"; continue; }
+    git -C "$TMPN" checkout -q "$COMMIT" </dev/null || echo "WARN: $NAME commit not found, kept latest version"
+    cp -r "$TMPN" "$D" || { echo "FAILED node $NAME (copy to volume)"; rm -rf "$D"; continue; }
+    rm -rf "$TMPN"
+    echo "installed node: $NAME"
+  elif [ ! -d "$D/.git" ] || [ "$(git -C "$D" rev-parse HEAD 2>/dev/null)" = "$COMMIT" ]; then
     continue
   else
     echo "updating node: $NAME"
     git -C "$D" fetch -q origin </dev/null
+    git -C "$D" checkout -q "$COMMIT" </dev/null || echo "WARN: $NAME commit not found, kept current version"
   fi
-  git -C "$D" checkout -q "$COMMIT" </dev/null || echo "WARN: $NAME commit not found, kept current version"
   [ -f "$D/requirements.txt" ] && pipi -r "$D/requirements.txt"
   CHANGED=1
 done < "$T/nodes.txt"
@@ -77,15 +89,24 @@ while IFS='|' read -r FO FI U; do
       if [ -z "${CIVITAI_TOKEN:-}" ]; then echo "SKIPPED $FI (add your CIVITAI_TOKEN to the template)"; continue; fi
       U="$U&token=$CIVITAI_TOKEN" ;;
   esac
+  rm -f "$D/$FI.part"   # leftover from the old curl fallback, never resumable
   echo "downloading: $FI"
-  if ! aria2c -q -x 16 -s 16 -k 1M -c -d "$D" -o "$FI" "$U" </dev/null; then
-    echo "retrying: $FI"
-    rm -f "$D/$FI" "$D/$FI.aria2"
-    if curl -fsSL --retry 3 -o "$D/$FI.part" "$U" </dev/null; then
-      mv "$D/$FI.part" "$D/$FI"
-    else
-      rm -f "$D/$FI.part"; echo "FAILED $FI"
+  # Big files (10Eros is ~28 GB) often lose connections to the download servers.
+  # Keep resuming from where it stopped instead of deleting progress and
+  # starting over. The .aria2 file stays until the file is really complete.
+  OK=0
+  for TRY in 1 2 3 4 5 6; do
+    if aria2c -q -x 8 -s 8 -k 1M -c --max-tries=20 --retry-wait=15 --timeout=60 --connect-timeout=30 \
+         -d "$D" -o "$FI" "$U" </dev/null; then
+      OK=1; break
     fi
+    echo "connection dropped, resuming $FI (attempt $((TRY+1)) of 6)..."
+    sleep 20
+  done
+  if [ "$OK" = 1 ]; then
+    echo "downloaded: $FI"
+  else
+    echo "FAILED $FI (progress kept; re-running the add-on resumes it)"
   fi
   CHANGED=1
 done < "$T/models_addon.txt"
