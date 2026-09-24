@@ -320,7 +320,10 @@ PYFIX
 echo "import aiu_volume_fix" > "$SITE_DIR/aiu_volume_fix.pth"
 fi
 
-cd "$COMFYUI_DIR" && nohup python3 "$COMFYUI_DIR/main.py" --listen --disable-smart-memory --disable-cuda-malloc > "$NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log" 2>&1 &
+# --disable-mmap / --disable-dynamic-vram: read each model into memory in one go.
+# The default streams model weights off disk bit by bit while generating, which
+# on a network volume made the first generation crawl for many minutes.
+cd "$COMFYUI_DIR" && nohup python3 "$COMFYUI_DIR/main.py" --listen --disable-smart-memory --disable-cuda-malloc --disable-mmap --disable-dynamic-vram > "$NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log" 2>&1 &
 
     counter=0
     max_wait=600

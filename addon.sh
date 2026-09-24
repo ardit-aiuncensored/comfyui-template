@@ -181,7 +181,7 @@ if [ "$CHANGED" = 1 ] && [ -z "${ADDON_NO_RESTART:-}" ]; then
   until curl -sf http://127.0.0.1:8188 >/dev/null; do sleep 10; done
   pkill -f "ComfyUI/main.py"; sleep 5
   export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-  cd "$C" && setsid nohup $PY "$C/main.py" --listen --disable-smart-memory --disable-cuda-malloc \
+  cd "$C" && setsid nohup $PY "$C/main.py" --listen --disable-smart-memory --disable-cuda-malloc --disable-mmap --disable-dynamic-vram \
     > /workspace/comfyui_addon.log 2>&1 < /dev/null &
   echo "ComfyUI restarted"
 fi
