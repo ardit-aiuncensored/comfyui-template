@@ -343,4 +343,23 @@ cd "$COMFYUI_DIR" && nohup python3 "$COMFYUI_DIR/main.py" --listen --disable-sma
         echo "🚀 ComfyUI is UP"
     fi
 
+    # Pre-warm: read the Krea 2 models into the pod's memory in the background,
+    # so the first generation doesn't have to wait on the network volume.
+    # Only if there's plenty of free RAM; the system drops it again if needed.
+    (
+        avail_gb=$(awk '/MemAvailable/{print int($2/1048576)}' /proc/meminfo)
+        if [ "${avail_gb:-0}" -lt 48 ]; then echo "skipped: only ${avail_gb}GB RAM free"; exit 0; fi
+        echo "pre-warming Krea 2 models ($(date))"
+        for f in \
+            clip/qwen3vl_4b_bf16.safetensors \
+            diffusion_models/rawgirlKrea2INT8_v10.safetensors \
+            vae/wan_2.1_vae.safetensors \
+            loras/*krea2*.safetensors; do
+            for p in "$NETWORK_VOLUME"/ComfyUI/models/$f; do
+                [ -f "$p" ] && nice -n 19 cat "$p" > /dev/null && echo "  warmed $(basename "$p")"
+            done
+        done
+        echo "pre-warm done ($(date))"
+    ) > "$NETWORK_VOLUME/prewarm.log" 2>&1 &
+
     sleep infinity
