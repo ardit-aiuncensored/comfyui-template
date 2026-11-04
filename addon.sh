@@ -81,6 +81,24 @@ while read -r NAME URL COMMIT; do
   [ -f "$D/requirements.txt" ] && pipi -r "$D/requirements.txt"
 done < "$T/nodes.txt"
 
+# 4b. H3 Character Swap node pack (a subfolder of Akatz Labs' repo, so nodes.txt can't install it)
+H3N="$C/custom_nodes/h3_character_swap"
+if [ ! -f "$H3N/__init__.py" ]; then
+  echo "installing node: h3_character_swap"
+  H3T=/tmp/h3swap_src; rm -rf "$H3T"
+  if git clone -q --filter=blob:none --no-checkout https://github.com/akatz-labs/h3-character-swap-tool.git "$H3T" </dev/null \
+     && git -C "$H3T" sparse-checkout set worker_nodes/h3_character_swap workflows </dev/null \
+     && git -C "$H3T" checkout -q 0670e4fdf95adf2262caa4b81afed2a9c4ae4b7b </dev/null \
+     && cp -r "$H3T/worker_nodes/h3_character_swap" "$H3N"; then
+    mkdir -p "$C/user/default/workflows"
+    cp -n "$H3T/workflows/H3 Character Swap.json" "$C/user/default/workflows/" || true
+    echo "installed node: h3_character_swap"; CHANGED=1
+  else
+    echo "FAILED node h3_character_swap"; rm -rf "$H3N"
+  fi
+  rm -rf "$H3T"
+fi
+
 # Node packs that are not on GitHub (shipped in this repo)
 for n in ComfyUI-LoadImageCrop comfyui_fearnworksnodes; do
   if [ ! -d "$C/custom_nodes/$n" ] && [ -f "$T/extra_nodes.tar.gz" ]; then
@@ -181,7 +199,7 @@ if [ "$CHANGED" = 1 ] && [ -z "${ADDON_NO_RESTART:-}" ]; then
   until curl -sf http://127.0.0.1:8188 >/dev/null; do sleep 10; done
   pkill -f "ComfyUI/main.py"; sleep 5
   export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-  cd "$C" && setsid nohup $PY "$C/main.py" --listen --disable-smart-memory --disable-cuda-malloc --disable-mmap --disable-dynamic-vram \
+  cd "$C" && setsid nohup $PY "$C/main.py" --listen --disable-smart-memory --disable-cuda-malloc --disable-mmap --disable-dynamic-vram --reserve-vram 0 --enable-triton-backend --cache-classic \
     > /workspace/comfyui_addon.log 2>&1 < /dev/null &
   echo "ComfyUI restarted"
 fi
