@@ -55,6 +55,16 @@ if [ -n "$CV" ] && [ "$(git -C "$C" rev-parse HEAD 2>/dev/null)" != "$CV" ]; the
   fi
 fi
 
+# 3b. comfy/audio.py: the H3 Character Swap node needs this file, which only
+# exists in ComfyUI versions newer than ours. It is a standalone file, so add
+# just that file rather than moving all of ComfyUI to a newer version.
+if [ ! -s "$C/comfy/audio.py" ]; then
+  curl -fsSL -o "$C/comfy/audio.py.tmp" \
+    "https://raw.githubusercontent.com/comfyanonymous/ComfyUI/79be670e2d9be63e238785af307369d2b9039ed1/comfy/audio.py" \
+    && mv "$C/comfy/audio.py.tmp" "$C/comfy/audio.py" && echo "added comfy/audio.py" \
+    || { rm -f "$C/comfy/audio.py.tmp"; echo "FAILED to add comfy/audio.py"; }
+fi
+
 # 4. Custom nodes, pinned to the tested versions (nodes.txt: name url commit)
 while read -r NAME URL COMMIT; do
   [ -z "${NAME:-}" ] && continue
