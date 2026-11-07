@@ -34,3 +34,12 @@ rgthree-comfy https://github.com/rgthree/rgthree-comfy.git 2c5342a8cb0eaecaabf61
 ComfyUI-mxToolkit https://github.com/Smirnov75/ComfyUI-mxToolkit.git 7f7a0e584f12078a1c589645d866ae96bad0cc35
 ComfyMath https://github.com/evanspearman/ComfyMath.git c01177221c31b8e5fbc062778fc8254aeb541638
 10S-Comfy-nodes https://github.com/TenStrip/10S-Comfy-nodes.git c231acaaf66dff9153fc190a9a8e67a8198005a6
+ComfyUI-ColorCorrectGPU https://github.com/boobkake22/ComfyUI-ColorCorrectGPU.git ee9d798ec7c8a95c5f8d6b96c4eef90927762870
+ComfyUI-FilmGrainLTXV https://github.com/boobkake22/ComfyUI-FilmGrainLTXV.git 93266a0efcf093cbf197f89ff51a2892a0f4cc1b
+ComfyUI-QuickWatermark https://github.com/boobkake22/ComfyUI-QuickWatermark.git 16112ed5824f7a0e9d18f0a0940339d0c7e1c3eb
+ComfyUI-SamplingPlanner https://github.com/boobkake22/ComfyUI-SamplingPlanner.git 43cdf7ef0967546e62cf9fc0d3f281062cb79efa
+ComfyUI-SimpleSwitch https://github.com/boobkake22/ComfyUI-SimpleSwitch.git 5a4f403a2f4aac076cee89ffe8ff4e93511c9acc
+ComfyUI-WanResolutions https://github.com/boobkake22/ComfyUI-WanResolutions.git 79a3b1cdb044ba1f6fc973a81e0afb64de9c2957
+ComfyUI-YAWSettingsImporter https://github.com/boobkake22/ComfyUI-YAWSettingsImporter.git 723a60d8ceabbd178a9f6972926bff6e7ea72bc1
+ComfyUI-Frame-Interpolation https://github.com/Fannovel16/ComfyUI-Frame-Interpolation.git 26545cc2dd95bc3d27f056016300673bdeee78f5
+ComfyUI-MiniMax-H3-Turbo https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo.git 4274783a23afcfdbea3b4876cb79effd6c510785
