@@ -55,16 +55,6 @@ if [ -n "$CV" ] && [ "$(git -C "$C" rev-parse HEAD 2>/dev/null)" != "$CV" ]; the
   fi
 fi
 
-# 3b. comfy/audio.py: the H3 Character Swap node needs this file, which only
-# exists in ComfyUI versions newer than ours. It is a standalone file, so add
-# just that file rather than moving all of ComfyUI to a newer version.
-if [ ! -s "$C/comfy/audio.py" ]; then
-  curl -fsSL -o "$C/comfy/audio.py.tmp" \
-    "https://raw.githubusercontent.com/comfyanonymous/ComfyUI/79be670e2d9be63e238785af307369d2b9039ed1/comfy/audio.py" \
-    && mv "$C/comfy/audio.py.tmp" "$C/comfy/audio.py" && echo "added comfy/audio.py" \
-    || { rm -f "$C/comfy/audio.py.tmp"; echo "FAILED to add comfy/audio.py"; }
-fi
-
 # 4. Custom nodes, pinned to the tested versions (nodes.txt: name url commit)
 while read -r NAME URL COMMIT; do
   [ -z "${NAME:-}" ] && continue
@@ -90,24 +80,6 @@ while read -r NAME URL COMMIT; do
   fi
   [ -f "$D/requirements.txt" ] && pipi -r "$D/requirements.txt"
 done < "$T/nodes.txt"
-
-# 4b. H3 Character Swap node pack (a subfolder of Akatz Labs' repo, so nodes.txt can't install it)
-H3N="$C/custom_nodes/h3_character_swap"
-if [ ! -f "$H3N/__init__.py" ]; then
-  echo "installing node: h3_character_swap"
-  H3T=/tmp/h3swap_src; rm -rf "$H3T"
-  if git clone -q --filter=blob:none --no-checkout https://github.com/akatz-labs/h3-character-swap-tool.git "$H3T" </dev/null \
-     && git -C "$H3T" sparse-checkout set worker_nodes/h3_character_swap workflows </dev/null \
-     && git -C "$H3T" checkout -q 0670e4fdf95adf2262caa4b81afed2a9c4ae4b7b </dev/null \
-     && cp -r "$H3T/worker_nodes/h3_character_swap" "$H3N"; then
-    mkdir -p "$C/user/default/workflows"
-    cp -n "$H3T/workflows/H3 Character Swap.json" "$C/user/default/workflows/" || true
-    echo "installed node: h3_character_swap"; CHANGED=1
-  else
-    echo "FAILED node h3_character_swap"; rm -rf "$H3N"
-  fi
-  rm -rf "$H3T"
-fi
 
 # Node packs that are not on GitHub (shipped in this repo)
 for n in ComfyUI-LoadImageCrop comfyui_fearnworksnodes; do

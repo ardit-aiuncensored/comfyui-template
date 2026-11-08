@@ -1,8 +1,3 @@
-diffusion_models|minimax_h3_fl2va_pruned_int8.safetensors|https://civitai.com/api/download/models/3193337?fileId=3074134
-diffusion_models|minimax_h3_ref2va_pruned_int8.safetensors|https://civitai.com/api/download/models/3193385?fileId=3074237
-loras|minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors|https://huggingface.co/Kijai/MiniMax-H3_comfy/resolve/main/loras/minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors
-loras|minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors|https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors
-loras|minimax_h3_turbo_4step_ckpt850.safetensors|https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/resolve/main/minimax_h3_turbo_4step_ckpt850.safetensors
 text_encoders|qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors|https://civitai.com/api/download/models/3216500?fileId=3085616
 ultralytics/bbox|face_yolov8m.pt|https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8m.pt
 ultralytics/bbox|hand_yolov8s.pt|https://huggingface.co/Bingsu/adetailer/resolve/main/hand_yolov8s.pt
@@ -14,7 +9,5 @@ checkpoints|10Eros_v1.3_fp8mixed_learned.safetensors|https://huggingface.co/TenS
 text_encoders|gemma-3-12b-it-ablit-norms-biproj-fp8mixed.safetensors|https://huggingface.co/TenStrip/LTX2.3-10Eros/resolve/main/text_encoders/gemma-3-12b-it-ablit-norms-biproj-fp8mixed.safetensors
 latent_upscale_models|ltx-2.3-spatial-upscaler-x2-1.1.safetensors|https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.1.safetensors
 loras|LTX2.3_DMD_reshaped_r256.safetensors|https://huggingface.co/TenStrip/LTX2.3_DMD_Lora/resolve/main/LTX2.3_DMD_reshaped_r256.safetensors
-loras|h3_character_swap_v1.5.safetensors|https://huggingface.co/akatz-ai/MiniMax-H3-Character-Swap-LoRA/resolve/d06323b7c8e70e97cdab48b78a1e05f786c8cba9/h3_character_swap_v1.5.safetensors
-diffusion_models|minimax_h3_ref2va_pruned_int8_convrot.safetensors|https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/1c41cfca8ebba91d0af792a05c5761fb2c3a7975/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors
 diffusion_models|minimax_h3_fl2va_pruned_int8_convrot.safetensors|https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors
 loras|minimax_h3_turbo_v4_step600_ema.safetensors|https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/resolve/main/minimax_h3_turbo_v4_step600_ema.safetensors
